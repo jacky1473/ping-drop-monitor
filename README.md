@@ -9,7 +9,15 @@
 
 A continuous, high-precision network monitoring daemon and responsive web dashboard designed for tracking packet loss, downtime incidents, and **drop impact hours** across multiple IP targets simultaneously over a single network interface.
 
-![Dashboard Preview](screenshot.png)
+## 📸 Screenshots Showcase
+
+| Web GUI Dashboard Overview | Add Target IP Modal |
+| :---: | :---: |
+| ![Dashboard](screenshots/1_dashboard_overview.png) | ![Add Target](screenshots/2_add_target_modal.png) |
+
+| Automated Excel Audit Report (.xls) | Terminal CLI Status View |
+| :---: | :---: |
+| ![Excel Report](screenshots/3_excel_report_preview.png) | ![Terminal CLI](screenshots/4_terminal_cli_status.png) |
 
 Unlike generic monitoring tools that clutter databases with millions of successful ping logs, **ping-drop-monitor** logs **ONLY when a drop, timeout, or packet loss occurs**. Reachable pings are discarded from logging, keeping the SQLite database lightweight and Excel audit reports focused 100% on network outages and drop impact analysis.
 
