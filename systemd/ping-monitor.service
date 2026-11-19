@@ -1,0 +1,17 @@
+[Unit]
+Description=24x7 Multi-IP Continuous Ping & Drop Rate Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/ping
+ExecStart=/usr/bin/python3 /ping/monitor.py
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

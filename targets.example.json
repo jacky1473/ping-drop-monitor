@@ -1,0 +1,17 @@
+[
+  {
+    "ip": "192.168.2.13",
+    "name": "Primary Server / PBX",
+    "enabled": true
+  },
+  {
+    "ip": "192.168.1.1",
+    "name": "Default Gateway",
+    "enabled": true
+  },
+  {
+    "ip": "8.8.8.8",
+    "name": "Google DNS (Internet)",
+    "enabled": true
+  }
+]

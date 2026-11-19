@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>24x7 Multi-IP Ping &amp; Drop Impact Monitor</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome 6 -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg-surface: #1e222b;
+      --border-color: #2e3440;
+    }
+    body {
+      background-color: #12151c;
+      color: #e5e9f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+    }
+    .target-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border-left: 4px solid #2ecc71;
+    }
+    .target-card.status-drop {
+      border-left-color: #f1c40f;
+    }
+    .target-card.status-down {
+      border-left-color: #e74c3c;
+    }
+    .target-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+    .pulse-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .pulse-green {
+      background-color: #2ecc71;
+      box-shadow: 0 0 10px #2ecc71;
+      animation: pulseGreen 1.8s infinite;
+    }
+    .pulse-red {
+      background-color: #e74c3c;
+      box-shadow: 0 0 12px #e74c3c;
+      animation: pulseRed 1s infinite;
+    }
+    @keyframes pulseGreen {
+      0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+    }
+    @keyframes pulseRed {
+      0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.8); }
+      70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+    }
+    .table-custom th {
+      background-color: #171a22;
+      border-bottom: 2px solid var(--border-color);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8892b0;
+    }
+    .table-custom td {
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      font-size: 0.92rem;
+    }
+    .badge-drop {
+      background-color: rgba(231, 76, 60, 0.2);
+      color: #ff6b6b;
+      border: 1px solid rgba(231, 76, 60, 0.4);
+    }
+    .badge-partial {
+      background-color: rgba(241, 196, 15, 0.2);
+      color: #f1c40f;
+      border: 1px solid rgba(241, 196, 15, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg border-bottom border-dark-subtle px-3 py-2" style="background-color: var(--bg-surface);">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-light" href="#">
+        <i class="fa-solid fa-satellite-dish text-primary"></i>
+        <span>Multi-IP Ping &amp; Drop Impact Monitor</span>
+      </a>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <button class="btn btn-sm btn-primary fw-bold d-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddTarget">
+          <i class="fa-solid fa-plus"></i> Add Target IP
+        </button>
+        <a href="/download" class="btn btn-sm btn-success fw-bold d-flex align-items-center gap-1 shadow-sm">
+          <i class="fa-solid fa-file-excel"></i> Download Master report.xls
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 py-4">
+
+    <!-- Section: Monitored Targets Cards -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-light">
+        <i class="fa-solid fa-server text-info me-2"></i>Monitored IP Targets
+        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-2" id="targetsCountBadge">0</span>
+      </h5>
+      <span class="text-muted small">Single Interface &bull; Real-time 24x7 Parallel Probing &bull; Only Drops Logged</span>
+    </div>
+
+    <!-- Targets Grid -->
+    <div class="row g-3 mb-4" id="targetsGrid">
+      <div class="col-12 text-center py-4 text-muted">
+        <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading targets...
+      </div>
+    </div>
+
+    <!-- Section: Drop Incidents Log Toolbar -->
+    <div class="card p-3 mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <h5 class="fw-bold mb-0 text-light">
+            <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Recorded Drop Events
+          </h5>
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+            Drop &amp; Outage Records Only
+          </span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <!-- Filter by Target -->
+          <select id="filterTarget" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: 220px;" onchange="renderDropsTable()">
+            <option value="ALL">Show All Targets</option>
+          </select>
+          <button class="btn btn-outline-light btn-sm" onclick="fetchData()">
+            <i class="fa-solid fa-rotate me-1"></i> Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop Incidents Table -->
+    <div class="card p-0 mb-4 overflow-hidden">
+      <div class="table-responsive">
+        <table class="table table-custom table-hover mb-0">
+          <thead>
+            <tr>
+              <th style="width: 60px;" class="text-center">#</th>
+              <th>Target IP / Name</th>
+              <th>Outage Start</th>
+              <th>Outage End</th>
+              <th class="text-end">Duration (Sec)</th>
+              <th class="text-end">Impact (Hours)</th>
+              <th class="text-center">Loss %</th>
+              <th class="text-center">Status</th>
+              <th>Impact Summary</th>
+            </tr>
+          </thead>
+          <tbody id="dropsTableBody">
+            <tr>
+              <td colspan="9" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading drop incidents...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Add Target IP -->
+  <div class="modal fade" id="modalAddTarget" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-light border border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title fw-bold">
+            <i class="fa-solid fa-plus-circle text-primary me-2"></i>Add Target IP for Monitoring
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAddTarget" onsubmit="event.preventDefault(); submitAddTarget();">
+            <div class="mb-3">
+              <label for="inputTargetIp" class="form-label fw-bold small text-uppercase text-muted">Target IP Address or Hostname <span class="text-danger">*</span></label>
+              <input type="text" class="form-control bg-black text-light border-secondary font-monospace" id="inputTargetIp" placeholder="e.g. 192.168.2.14 or 8.8.8.8" required>
+            </div>
+            <div class="mb-3">
+              <label for="inputTargetName" class="form-label fw-bold small text-uppercase text-muted">Target Friendly Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control bg-black text-light border-secondary" id="inputTargetName" placeholder="e.g. Secondary Dialer / Gateway" required>
+            </div>
+            <div class="small text-muted mb-2">
+              <i class="fa-solid fa-circle-info text-info me-1"></i>
+              Tool will immediately start continuous 24x7 parallel probing and generate its own separate report file: <code>/ping/report_&lt;ip&gt;.xls</code>.
+            </div>
+            <div id="addErrorAlert" class="alert alert-danger py-2 small" style="display: none;"></div>
+          </form>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm fw-bold" onclick="submitAddTarget()">
+            <i class="fa-solid fa-check me-1"></i> Add &amp; Start Monitoring
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let globalData = null;
+
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/stats');
+        globalData = await res.json();
+        renderTargetsGrid();
+        updateFilterDropdown();
+        renderDropsTable();
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    }
+
+    function renderTargetsGrid() {
+      const grid = document.getElementById('targetsGrid');
+      const badge = document.getElementById('targetsCountBadge');
+      if (!globalData || !globalData.targets) return;
+
+      badge.textContent = globalData.targets.length;
+
+      if (globalData.targets.length === 0) {
+        grid.innerHTML = `<div class="col-12 text-center py-4 text-muted">No targets configured. Click "Add Target IP" to start.</div>`;
+        return;
+      }
+
+      grid.innerHTML = globalData.targets.map(t => {
+        const isDown = t.status === 'DOWN';
+        const isDrop = t.status === 'PACKET_DROP';
+        let cardClass = '';
+        let pulseClass = 'pulse-green';
+        let statusText = 'LIVE: OK';
+        let badgeBg = 'bg-success-subtle text-success';
+
+        if (isDown) {
+          cardClass = 'status-down';
+          pulseClass = 'pulse-red';
+          statusText = 'ALERT: DOWN';
+          badgeBg = 'bg-danger-subtle text-danger';
+        } else if (isDrop) {
+          cardClass = 'status-drop';
+          pulseClass = 'pulse-red';
+          statusText = 'PACKET DROP';
+          badgeBg = 'bg-warning-subtle text-warning';
+        }
+
+        const dropHours = (t.total_drop_seconds / 3600).toFixed(4);
+
+        return `
+          <div class="col-12 col-md-6 col-xl-4">
+            <div class="card target-card ${cardClass} p-3 h-100">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <h6 class="fw-bold mb-0 text-white">${escapeHtml(t.name)}</h6>
+                  <span class="font-monospace small text-info">${escapeHtml(t.ip)}</span>
+                </div>
+                <div class="badge ${badgeBg} px-2 py-1 rounded-pill d-flex align-items-center">
+                  <span class="pulse-dot ${pulseClass}"></span>
+                  <span class="small fw-bold">${statusText}</span>
+                </div>
+              </div>
+
+              <!-- Stats Row -->
+              <div class="row g-2 my-2 text-center font-monospace">
+                <div class="col-4">
+                  <div class="p-2 rounded bg-black bg-opacity-25 border border-dark-subtle">
+                    <div class="small text-muted" style="font-size: 0.72rem;">LATENCY</div>
+                    <div class="fw-bold text-light">${t.last_rtt > 0 ? t.last_rtt.toFixed(1) + 'ms' : '--'}</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 rounded bg-black bg-opacity-25 border border-dark-subtle">
+                    <div class="small text-muted" style="font-size: 0.72rem;">DROPS</div>
+                    <div class="fw-bold text-warning">${t.total_drop_events}</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 rounded bg-black bg-opacity-25 border border-dark-subtle">
+                    <div class="small text-muted" style="font-size: 0.72rem;">DROP HRS</div>
+                    <div class="fw-bold text-danger">${dropHours}h</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top border-secondary-subtle">
+                <div class="small text-muted">
+                  Drop Rate: <strong class="text-light">${t.drop_rate_pct.toFixed(2)}%</strong> (${t.total_probes} checks)
+                </div>
+                <div class="d-flex gap-1">
+                  <a href="/download/${encodeURIComponent(t.ip)}" class="btn btn-outline-success btn-sm py-0 px-2" title="Download ${t.ip} Report">
+                    <i class="fa-solid fa-file-excel me-1"></i> Excel
+                  </a>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="deleteTarget('${escapeHtml(t.ip)}', '${escapeHtml(t.name)}')" title="Remove Target">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateFilterDropdown() {
+      const select = document.getElementById('filterTarget');
+      const curVal = select.value;
+      if (!globalData || !globalData.targets) return;
+
+      select.innerHTML = '<option value="ALL">Show All Targets</option>' + 
+        globalData.targets.map(t => `<option value="${escapeHtml(t.ip)}">${escapeHtml(t.name)} (${escapeHtml(t.ip)})</option>`).join('');
+
+      if (curVal && [...select.options].some(o => o.value === curVal)) {
+        select.value = curVal;
+      }
+    }
+
+    function renderDropsTable() {
+      const tbody = document.getElementById('dropsTableBody');
+      const filter = document.getElementById('filterTarget').value;
+      if (!globalData || !globalData.drops) return;
+
+      let drops = globalData.drops;
+      if (filter !== 'ALL') {
+        drops = drops.filter(d => d.target_ip === filter);
+      }
+
+      if (drops.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="text-center py-5 text-success">
+              <i class="fa-solid fa-circle-check fs-2 mb-2 d-block"></i>
+              <div class="fw-bold">No Packet Drops Recorded</div>
+              <div class="small text-muted">${filter === 'ALL' ? 'All monitored targets are fully reachable with 0% loss.' : 'Selected target has 0% loss.'}</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = drops.map(d => {
+        const isDown = d.status === 'DOWN';
+        const badgeClass = isDown ? 'badge-drop' : 'badge-partial';
+        const impactHrs = (d.duration_sec / 3600).toFixed(4);
+        return `
+          <tr>
+            <td class="text-center font-monospace text-muted">${d.id}</td>
+            <td>
+              <div class="fw-bold text-white">${escapeHtml(d.target_name || d.target_ip)}</div>
+              <span class="font-monospace small text-info">${escapeHtml(d.target_ip)}</span>
+            </td>
+            <td class="font-monospace text-light">${d.start_time}</td>
+            <td class="font-monospace">${d.end_time || '<span class="badge bg-danger pulse-red">ONGOING</span>'}</td>
+            <td class="text-end font-monospace">${d.duration_sec.toFixed(1)}s</td>
+            <td class="text-end font-monospace fw-bold text-danger">${impactHrs}h</td>
+            <td class="text-center font-monospace fw-bold text-warning">${d.max_loss_pct.toFixed(0)}%</td>
+            <td class="text-center"><span class="badge ${badgeClass} px-2 py-1">${d.status}</span></td>
+            <td class="small text-light">${escapeHtml(d.impact_summary || '')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function submitAddTarget() {
+      const ip = document.getElementById('inputTargetIp').value.trim();
+      const name = document.getElementById('inputTargetName').value.trim();
+      const errAlert = document.getElementById('addErrorAlert');
+      errAlert.style.display = 'none';
+
+      if (!ip || !name) {
+        errAlert.textContent = 'Please enter both Target IP and Name.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/targets/add', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ip, name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('modalAddTarget')).hide();
+          document.getElementById('formAddTarget').reset();
+          fetchData();
+        } else {
+          errAlert.textContent = data.error || 'Failed to add target';
+          errAlert.style.display = 'block';
+        }
+      } catch (e) {
+        errAlert.textContent = e.message;
+        errAlert.style.display = 'block';
+      }
+    }
+
+    async function deleteTarget(ip, name) {
+      if (!confirm(`Are you sure you want to remove target "${name}" (${ip}) from monitoring?`)) return;
+      try {
+        const res = await fetch('/api/targets/delete', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ip })
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchData();
+        } else {
+          alert(data.error || 'Failed to delete target');
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Auto-refresh every 10 seconds
+    fetchData();
+    setInterval(fetchData, 10000);
+  </script>
+</body>
+</html>
